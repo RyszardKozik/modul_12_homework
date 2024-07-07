@@ -11,6 +11,9 @@ class ContactCreate(ContactBase):
 class Contact(ContactBase):
     id: int
 
+class Config:
+        from_attributes = True
+
 class UserBase(BaseModel):
     email: str
 
@@ -20,5 +23,14 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int
 
-    class Config:
-        orm_mode = True
+class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
