@@ -1,8 +1,7 @@
-# Import necessary SQLAlchemy modules
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 import os
-from dotenv import load_dotenv  # Import the load_dotenv function
+from dotenv import load_dotenv 
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,8 +20,8 @@ Base = declarative_base()
 
 # Define a function to get a database session
 def get_db():
-    db = SessionLocal()  # Create a new session
+    db = SessionLocal()  
     try:
-        yield db  # Provide the session to the caller
+        yield db 
     finally:
-        db.close()  # Ensure the session is closed after use
+        db.close()
