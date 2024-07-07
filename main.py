@@ -1,15 +1,11 @@
 from typing import List
-
-# Import necessary modules from FastAPI and SQLAlchemy
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
-
-# Import the authentication and database modules
 from db import SessionLocal, engine, Base
 from models import User
 import schemas
-import auth  # Import auth module for authentication functions
+import auth  
 
 # Create all tables in the database which are defined by Base's subclasses
 Base.metadata.create_all(bind=engine)
@@ -19,11 +15,11 @@ app = FastAPI()
 
 # Dependency function to get a database session
 def get_db():
-    db = SessionLocal()  # Create a new session
+    db = SessionLocal()
     try:
-        yield db  # Provide the session to the caller
+        yield db 
     finally:
-        db.close()  # Ensure the session is closed after use
+        db.close()e
 
 # Endpoint for user registration
 @app.post("/register/", response_model=schemas.User)
