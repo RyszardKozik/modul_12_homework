@@ -1,27 +1,24 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 import os
-from dotenv import load_dotenv 
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Get the database URL from environment variables
-DATABASE_URL = os.getenv("DATABASE_URL")
+SQLALCHEMY_DATABASE_URL = os.getenv('SQLALCHEMY_DATABASE_URL')
 
-# Create the engine to connect to the database
-engine = create_engine(DATABASE_URL)
+if not SQLALCHEMY_DATABASE_URL:
+    raise ValueError("No SQLALCHEMY_DATABASE_URL provided in environment variables")
 
-# Create a configured "Session" class
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create a base class for declarative class definitions
 Base = declarative_base()
 
-# Define a function to get a database session
 def get_db():
-    db = SessionLocal()  
+    db = SessionLocal()
     try:
-        yield db 
+        yield db
     finally:
         db.close()
