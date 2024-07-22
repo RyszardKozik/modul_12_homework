@@ -2,22 +2,23 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
+from pydantic import BaseModel
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from typing import Optional
 from datetime import timedelta
-
-from pydantic import BaseModel
 from db import Base, engine, get_db
-import models, schemas, crud, auth
+from typing import Optional
+from modul_12_homework import models, schemas, crud, auth
 
 app = FastAPI()
 
 # Create tables in the database
 Base.metadata.create_all(bind=engine)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 @app.post("/users/", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -25,10 +26,6 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     return crud.create_new_user(db=db, user=user)
-
-@app.get("/users/me/", response_model=schemas.User)
-def read_users_me(current_user: schemas.User = Depends(auth.get_current_active_user)):
-    return current_user
 
 @app.post("/token", response_model=schemas.Token, status_code=status.HTTP_201_CREATED)
 def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
@@ -64,9 +61,60 @@ def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.get("/users/me/", response_model=schemas.User)
+def read_users_me(current_user: schemas.User = Depends(auth.get_current_active_user)):
+    return current_user
+
+@app.get("/users/{user_id}", response_model=schemas.User)
+def read_user(user_id: int, db: Session = Depends(get_db)):
+    db_user = crud.get_user(db, user_id=user_id)
+    if db_user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return db_user
+
+@app.put("/users/{user_id}", response_model=schemas.User)
+def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(get_db)):
+    db_user = crud.update_user(db, user_id=user_id, user_update=user)
+    if db_user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return db_user
+
+@app.delete("/users/{user_id}")
+def delete_user(user_id: int, db: Session = Depends(get_db)):
+    success = crud.delete_user(db, user_id=user_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return {"message": "User deleted successfully"}
+
 @app.post("/contacts/", response_model=schemas.Contact, status_code=status.HTTP_201_CREATED)
 def create_contact(contact: schemas.ContactCreate, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
     return crud.create_user_contact(db=db, contact=contact, user_id=current_user.id)
+
+@app.get("/contacts/", response_model=List[schemas.Contact])
+def read_contacts(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
+    contacts = crud.get_contacts(db, user_id=current_user.id, skip=skip, limit=limit)
+    return contacts
+
+@app.get("/contacts/{contact_id}", response_model=schemas.Contact)
+def read_contact(contact_id: int, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
+    contact = crud.get_contact(db, contact_id=contact_id, user_id=current_user.id)
+    if contact is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
+    return contact
+
+@app.put("/contacts/{contact_id}", response_model=schemas.Contact)
+def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
+    db_contact = crud.update_contact(db, contact_id=contact_id, contact_update=contact, user_id=current_user.id)
+    if db_contact is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
+    return db_contact
+
+@app.delete("/contacts/{contact_id}")
+def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
+    success = crud.delete_contact(db, contact_id=contact_id, user_id=current_user.id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
+    return {"message": "Contact deleted successfully"}
 
 # Example route
 @app.get("/")
