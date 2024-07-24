@@ -2,16 +2,14 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from pydantic import BaseModel
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from db import Base, engine, get_db
-from typing import Optional
+from typing import List
 from modul_12_homework import models, schemas, crud, auth
+from auth import get_current_user, get_current_active_user 
 
 app = FastAPI()
 
