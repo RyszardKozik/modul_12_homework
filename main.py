@@ -11,13 +11,16 @@ from typing import List
 from modul_12_homework import models, schemas, crud, auth
 from auth import get_current_user, get_current_active_user 
 
+# Initialize the FastAPI app
 app = FastAPI()
 
 # Create tables in the database
 Base.metadata.create_all(bind=engine)
 
+# Define the OAuth2 password bearer scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+# Endpoint to create a new user
 @app.post("/users/", response_model=schemas.User, status_code=status.HTTP_201_CREATED)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
@@ -25,6 +28,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
     return crud.create_new_user(db=db, user=user)
 
+# Endpoint to login and get an access token
 @app.post("/token", response_model=schemas.Token, status_code=status.HTTP_201_CREATED)
 def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()):
     user = auth.authenticate_user(db, form_data.username, form_data.password)
@@ -44,6 +48,7 @@ def login_for_access_token(db: Session = Depends(get_db), form_data: OAuth2Passw
     )
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
+# Endpoint to refresh an access token
 @app.post("/token/refresh", response_model=schemas.Token, status_code=status.HTTP_201_CREATED)
 def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
     user = auth.get_user_from_refresh_token(db, refresh_token)
@@ -59,10 +64,12 @@ def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+# Endpoint to get the current user
 @app.get("/users/me/", response_model=schemas.User)
 def read_users_me(current_user: schemas.User = Depends(auth.get_current_active_user)):
     return current_user
 
+# Endpoint to get a user by ID
 @app.get("/users/{user_id}", response_model=schemas.User)
 def read_user(user_id: int, db: Session = Depends(get_db)):
     db_user = crud.get_user(db, user_id=user_id)
@@ -70,6 +77,7 @@ def read_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return db_user
 
+# Endpoint to update a user by ID
 @app.put("/users/{user_id}", response_model=schemas.User)
 def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(get_db)):
     db_user = crud.update_user(db, user_id=user_id, user_update=user)
@@ -77,6 +85,7 @@ def update_user(user_id: int, user: schemas.UserUpdate, db: Session = Depends(ge
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return db_user
 
+# Endpoint to delete a user by ID
 @app.delete("/users/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db)):
     success = crud.delete_user(db, user_id=user_id)
@@ -84,15 +93,18 @@ def delete_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return {"message": "User deleted successfully"}
 
+# Endpoint to create a new contact
 @app.post("/contacts/", response_model=schemas.Contact, status_code=status.HTTP_201_CREATED)
 def create_contact(contact: schemas.ContactCreate, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
     return crud.create_user_contact(db=db, contact=contact, user_id=current_user.id)
 
+# Ensure the user has access only to their contacts
 @app.get("/contacts/", response_model=List[schemas.Contact])
 def read_contacts(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
     contacts = crud.get_contacts(db, user_id=current_user.id, skip=skip, limit=limit)
     return contacts
 
+# Endpoint to get a contact by ID
 @app.get("/contacts/{contact_id}", response_model=schemas.Contact)
 def read_contact(contact_id: int, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
     contact = crud.get_contact(db, contact_id=contact_id, user_id=current_user.id)
@@ -100,6 +112,7 @@ def read_contact(contact_id: int, db: Session = Depends(get_db), current_user: s
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
     return contact
 
+# Endpoint to update a contact by ID
 @app.put("/contacts/{contact_id}", response_model=schemas.Contact)
 def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
     db_contact = crud.update_contact(db, contact_id=contact_id, contact_update=contact, user_id=current_user.id)
@@ -107,6 +120,7 @@ def update_contact(contact_id: int, contact: schemas.ContactUpdate, db: Session 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Contact not found")
     return db_contact
 
+# Endpoint to delete a contact by ID
 @app.delete("/contacts/{contact_id}")
 def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user: schemas.User = Depends(auth.get_current_active_user)):
     success = crud.delete_contact(db, contact_id=contact_id, user_id=current_user.id)
