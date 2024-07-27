@@ -1,94 +1,81 @@
-from datetime import datetime, timedelta
-from typing import Optional
-from jose import JWTError, jwt
-from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from modul_12_homework import models, schemas, crud
-from db import get_db
+from modul_12_homework import models, schemas, auth
 
-SECRET_KEY = "your_secret_key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+# User CRUD Operations
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# Read user by ID
+def get_user(db: Session, user_id: int):
+    return db.query(models.User).filter(models.User.id == user_id).first()
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+# Read user by email
+def get_user_by_email(db: Session, email: str):
+    return db.query(models.User).filter(models.User.email == email).first()
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+# Create a new user
+def create_new_user(db: Session, user: schemas.UserCreate):
+    hashed_password = auth.get_password_hash(user.password)
+    db_user = models.User(email=user.email, hashed_password=hashed_password)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
 
-def authenticate_user(db: Session, email: str, password: str):
-    user = crud.get_user_by_email(db, email)
-    if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
+# Update an existing user
+def update_user(db: Session, user_id: int, user_update: schemas.UserUpdate):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        if user_update.email:
+            user.email = user_update.email
+        if user_update.password:
+            user.hashed_password = auth.get_password_hash(user_update.password)
+        db.commit()
+        db.refresh(user)
+        return user
+    return None
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+# Delete a user
+def delete_user(db: Session, user_id: int):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user:
+        db.delete(user)
+        db.commit()
+        return True
+    return False
 
-def create_refresh_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(days=7)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+# Contact CRUD Operations
 
-def get_user_from_refresh_token(db: Session, token: str):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid refresh token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-        token_data = schemas.TokenData(email=email)
-    except JWTError:
-        raise credentials_exception
-    user = crud.get_user_by_email(db, email=token_data.email)
-    if user is None:
-        raise credentials_exception
-    return user
+# Read contacts with pagination
+def get_user_contacts(db: Session, user_id: int, skip: int = 0, limit: int = 100):
+    return db.query(models.Contact).filter(models.Contact.user_id == user_id).offset(skip).limit(limit).all()
 
-def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-        token_data = schemas.TokenData(email=email)
-    except JWTError:
-        raise credentials_exception
-    user = crud.get_user_by_email(db, email=token_data.email)
-    if user is None:
-        raise credentials_exception
-    return user
+# Create a new contact for a user
+def create_user_contact(db: Session, contact: schemas.ContactCreate, user_id: int):
+    db_contact = models.Contact(**contact.dict(), user_id=user_id)
+    db.add(db_contact)
+    db.commit()
+    db.refresh(db_contact)
+    return db_contact
 
-def get_current_active_user(current_user: schemas.User = Depends(get_current_user)):
-    if current_user.is_active == 0:
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
+# Read contact by ID
+def get_contact(db: Session, contact_id: int):
+    return db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+
+# Update a contact
+def update_contact(db: Session, contact_id: int, contact_update: schemas.ContactUpdate):
+    contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+    if contact:
+        for var, value in vars(contact_update).items():
+            setattr(contact, var, value) if value else None
+        db.commit()
+        db.refresh(contact)
+        return contact
+    return None
+
+# Delete a contact
+def delete_contact(db: Session, contact_id: int):
+    contact = db.query(models.Contact).filter(models.Contact.id == contact_id).first()
+    if contact:
+        db.delete(contact)
+        db.commit()
+        return True
+    return False
